@@ -1,0 +1,32 @@
+package org.teiath.data.dao;
+
+import org.hibernate.Query;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+import org.teiath.data.domain.aggregator.FeedJob;
+
+@Repository("feedJobDAO")
+public class FeedJobDAOImpl
+		implements FeedJobDAO {
+
+	@Autowired
+	private SessionFactory sessionFactory;
+
+	@Override
+	public void save(FeedJob feedJob) {
+		Session session = sessionFactory.getCurrentSession();
+		session.saveOrUpdate(feedJob);
+	}
+
+	@Override
+	public FeedJob findLatestJob() {
+		Session session = sessionFactory.getCurrentSession();
+
+		Query query = session.createQuery("from FeedJob feedJob order by feedJob.date DESC");
+		query.setMaxResults(1);
+
+		return (FeedJob) query.uniqueResult();
+	}
+}

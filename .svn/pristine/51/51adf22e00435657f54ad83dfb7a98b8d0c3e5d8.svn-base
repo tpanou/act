@@ -1,0 +1,2 @@
+# cron.interval=0 0/1 * * * *
+cron.interval=0 0 0 * * *

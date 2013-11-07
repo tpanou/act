@@ -1,0 +1,50 @@
+<?variable-resolver class="org.zkoss.zkplus.spring.DelegatingVariableResolver"?>
+<?init class="org.zkoss.zk.ui.util.Composition" arg0="/zul/templates/main_template.zul"?>
+<?page viewport="width=device-width, initial-scale=0.5, user-scalable=yes"?>
+<?page title="${labels.template.title}"?>
+<?link rel="shortcut icon" type="image/x-icon" href="/img/logo.png"?>
+<?link rel="icon" type="image/x-icon" href="/img/logo.png"?>
+<?root-attributes lang="en"xml:lang="en"?>
+<window xmlns="http://www.zkoss.org/2005/zul"
+        id="userViewWin"
+        self="@define(detail)"
+        border="none"
+        width="1200px"
+        apply="org.zkoss.bind.BindComposer"
+        viewModel="@id('vm') @init('org.teiath.web.vm.user.ListValuesVM')">
+
+	<style>
+		tr.z-row-over > td.z-row-inner {
+		border-bottom: 1px dotted #434E9E;
+		border-top: 1px dotted #434E9E;
+		}
+
+		tr.z-row-over > td.z-row-inner, tr.z-row-over > .z-cell {
+		background-image: none;
+		}
+	</style>
+	<div sclass="detail">
+		<div align="left" width="99%">
+			<hbox width="100%" widths="50%, 50%">
+				<label sclass="headerText" value="${labels.action.categories}" />
+			</hbox>
+			<separator height="20px" />
+			<div align="right">
+				<hbox>
+					<toolbarbutton image="/img/add.png"
+					               onClick="@command('onCreateActionCategories')" />
+
+					<toolbarbutton image="/img/edit.png" onClick="@command('onEditActionCategories')"
+					               disabled="@load(empty vm.selectedEventCategory)" />
+
+					<toolbarbutton image="/img/delete.png" onClick="@command('onDeleteActionCategories')"
+					               disabled="@load(empty vm.selectedEventCategory)" />
+
+				</hbox>
+			</div>
+			<tree id="tree" selectedItem="@bind(vm.selectedEventCategory)" width="100%">
+			</tree>
+			<separator height="20px" />
+		</div>
+	</div>
+</window>

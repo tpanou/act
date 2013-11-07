@@ -1,0 +1,140 @@
+package org.teiath.web.vm.ntf;
+
+import org.apache.log4j.Logger;
+import org.teiath.data.domain.act.EventCategory;
+import org.teiath.data.domain.act.EventNotificationCriteria;
+import org.teiath.service.act.EditEventNotificationCriteriaService;
+import org.teiath.service.exceptions.ServiceException;
+import org.teiath.web.session.ZKSession;
+import org.teiath.web.util.MessageBuilder;
+import org.teiath.web.util.PageURL;
+import org.teiath.web.vm.BaseVM;
+import org.teiath.web.vm.user.values.EventCategoryRenderer;
+import org.zkoss.bind.annotation.*;
+import org.zkoss.util.resource.Labels;
+import org.zkoss.zk.ui.Component;
+import org.zkoss.zk.ui.event.Event;
+import org.zkoss.zk.ui.event.EventListener;
+import org.zkoss.zk.ui.select.Selectors;
+import org.zkoss.zk.ui.select.annotation.Wire;
+import org.zkoss.zk.ui.select.annotation.WireVariable;
+import org.zkoss.zul.*;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+@SuppressWarnings("UnusedDeclaration")
+public class EditNotificationCriteriaVM
+		extends BaseVM {
+
+	static Logger log = Logger.getLogger(EditNotificationCriteriaVM.class.getName());
+
+	@Wire("#tree")
+	private Tree tree;
+
+	@WireVariable
+	private EditEventNotificationCriteriaService editEventNotificationCriteriaService;
+
+	private EventNotificationCriteria eventNotificationCriteria;
+	private TreeNode selectedParentEventCategory;
+
+	@AfterCompose
+	@NotifyChange("eventNotificationCriteria")
+	public void afterCompose(
+			@ContextParam(ContextType.VIEW)
+			Component view) {
+		Selectors.wireComponents(view, this, false);
+
+		eventNotificationCriteria = new EventNotificationCriteria();
+		Collection<EventCategory> parentalCategories = null;
+
+		try {
+			eventNotificationCriteria = editEventNotificationCriteriaService
+					.getEventNotificationCriteriaById((Integer) ZKSession.getAttribute("notificationCriteriaId"));
+			parentalCategories = editEventNotificationCriteriaService.getEventCategoriesByParentId(1000);
+			DefaultTreeModel model = new DefaultTreeModel(new DefaultTreeNode("ROOT", createTree(parentalCategories)));
+			tree.setModel(model);
+			tree.setItemRenderer(new EventCategoryRenderer());
+		} catch (ServiceException e) {
+			Messagebox.show(MessageBuilder.buildErrorMessage(e.getMessage(), Labels.getLabel("notifications.criteria")),
+					Labels.getLabel("common.messages.read_title"), Messagebox.OK, Messagebox.ERROR);
+			log.error(e.getMessage());
+			ZKSession.sendRedirect(PageURL.EVENT_NOTIFICATION_CRITERIA_LIST);
+		}
+	}
+
+	public List createTree(Collection<EventCategory> children) {
+		List childrenList = new ArrayList();
+
+		if ((children != null) && (! children.isEmpty())) {
+
+			for (EventCategory category : children) {
+
+				if (category.getSubCategories() != null) {
+					childrenList.add(new DefaultTreeNode(category, createTree(category.getSubCategories())));
+				} else {
+					childrenList.add(new DefaultTreeNode(category));
+				}
+			}
+		}
+
+		return childrenList;
+	}
+
+	@Command
+	@NotifyChange("eventNotificationCriteria")
+	public void onSelectCategory() {
+		eventNotificationCriteria.setEventCategory((EventCategory) selectedParentEventCategory.getData());
+	}
+
+	@Command
+	public void onSave() {
+
+		try {
+			editEventNotificationCriteriaService.saveEventNotificationCriteria(eventNotificationCriteria);
+			Messagebox.show(Labels.getLabel("notifications.message.success"),
+					Labels.getLabel("common.messages.save_title"), Messagebox.OK, Messagebox.INFORMATION,
+					new EventListener<Event>() {
+						public void onEvent(Event evt) {
+							ZKSession.sendRedirect(PageURL.EVENT_NOTIFICATION_CRITERIA_LIST);
+						}
+					});
+		} catch (ServiceException e) {
+			log.error(e.getMessage());
+			Messagebox.show(MessageBuilder.buildErrorMessage(e.getMessage(), Labels.getLabel("notifications")),
+					Labels.getLabel("common.messages.save_title"), Messagebox.OK, Messagebox.ERROR);
+			ZKSession.sendRedirect(PageURL.EVENT_NOTIFICATION_CRITERIA_LIST);
+		}
+	}
+
+	@Command
+	public void onCancel() {
+		ZKSession.sendRedirect(PageURL.EVENT_NOTIFICATION_CRITERIA_LIST);
+	}
+
+	public EventNotificationCriteria getEventNotificationCriteria() {
+		return eventNotificationCriteria;
+	}
+
+	public void setEventNotificationCriteria(EventNotificationCriteria eventNotificationCriteria) {
+		this.eventNotificationCriteria = eventNotificationCriteria;
+	}
+
+	public EditEventNotificationCriteriaService getEditEventNotificationCriteriaService() {
+		return editEventNotificationCriteriaService;
+	}
+
+	public void setEditEventNotificationCriteriaService(
+			EditEventNotificationCriteriaService editEventNotificationCriteriaService) {
+		this.editEventNotificationCriteriaService = editEventNotificationCriteriaService;
+	}
+
+	public TreeNode getSelectedParentEventCategory() {
+		return selectedParentEventCategory;
+	}
+
+	public void setSelectedParentEventCategory(TreeNode selectedParentEventCategory) {
+		this.selectedParentEventCategory = selectedParentEventCategory;
+	}
+}

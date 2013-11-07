@@ -1,0 +1,159 @@
+package org.teiath.service.aggregator;
+
+import com.sun.syndication.feed.synd.SyndEntryImpl;
+import com.sun.syndication.feed.synd.SyndFeed;
+import com.sun.syndication.io.FeedException;
+import com.sun.syndication.io.SyndFeedInput;
+import com.sun.syndication.io.XmlReader;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.teiath.data.dao.FeedDAO;
+import org.teiath.data.dao.FeedDataDAO;
+import org.teiath.data.dao.FeedJobDAO;
+import org.teiath.data.domain.aggregator.Feed;
+import org.teiath.data.domain.aggregator.FeedData;
+import org.teiath.data.domain.aggregator.FeedJob;
+import org.teiath.service.exceptions.ServiceException;
+import org.teiath.service.sys.SysParameterService;
+
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashSet;
+
+@Service("aggregatorService")
+@Transactional
+public class AggregatorServiceImpl
+		implements AggregatorService {
+
+	@Autowired
+	private FeedDAO feedDAO;
+	@Autowired
+	private FeedJobDAO feedJobDAO;
+	@Autowired
+	private FeedDataDAO feedDataDAO;
+	@Autowired
+	private SysParameterService sysParameterService;
+
+	@Override
+	public Collection<Feed> fetchActiveFeeds() {
+		return null;
+	}
+
+	@Override
+	public void run(Timestamp timestamp) {
+			try {
+				if (sysParameterService.fetchSystemParameters().isAggregatorEnabled()) {
+					FeedJob lastestJob = feedJobDAO.findLatestJob();
+
+					if (lastestJob == null || lastestJob.getDate().before(timestamp)) {
+						FeedJob feedJob = new FeedJob();
+						feedJob.setDate(new Timestamp(new Date().getTime()));
+						feedJobDAO.save(feedJob);
+
+						Collection<Feed> feeds = feedDAO.findActiveFeeds();
+						for (Feed feed : feeds) {
+							try {
+								URL feedSource = new URL(feed.getUrl());
+								SyndFeedInput input = new SyndFeedInput();
+								SyndFeed syndFeed = input.build(new XmlReader(feedSource));
+
+								SyndEntryImpl entry;
+								FeedData feedData;
+								for (int i = 0, j = syndFeed.getEntries().size(); i < j; i++) {
+									entry = (SyndEntryImpl) syndFeed.getEntries().get(i);
+
+									if (lastestJob == null || entry.getPublishedDate().after(lastestJob.getDate())) {
+										feedData = new FeedData();
+										feedData.setTitle(entry.getTitle().trim());
+										feedData.setDescription(entry.getDescription().getValue().trim());
+										feedData.setUrl(entry.getLink().trim());
+										feedData.setPublicationDate(new Timestamp(entry.getPublishedDate().getTime()));
+										feedData.setStatus(1);
+										feedData.setFeed(feed);
+										feedData.setInteresting(FeedData.NEW);
+
+										feedDataDAO.save(feedData);
+
+										feed.getFeedData().add(feedData);
+										feed.getFeedJobs().add(feedJob);
+									}
+								}
+
+								feedDAO.save(feed);
+							} catch (MalformedURLException e) {
+								e.printStackTrace();
+							} catch (FeedException e) {
+								e.printStackTrace();
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
+							System.out.println();
+						}
+					}
+				}
+			} catch (ServiceException e) {
+				e.printStackTrace();
+			}
+	}
+
+	@Override
+	public void updateFeed(Timestamp timestamp, Feed feed) {
+		try {
+			if (sysParameterService.fetchSystemParameters().isAggregatorEnabled()) {
+				FeedJob lastestJob = feedJobDAO.findLatestJobByFeed(feed);
+
+				if (lastestJob == null || lastestJob.getDate().before(timestamp)) {
+					FeedJob feedJob = new FeedJob();
+					feedJob.setDate(new Timestamp(new Date().getTime()));
+					feedJobDAO.save(feedJob);
+
+						try {
+							URL feedSource = new URL(feed.getUrl());
+							SyndFeedInput input = new SyndFeedInput();
+							SyndFeed syndFeed = input.build(new XmlReader(feedSource));
+
+							SyndEntryImpl entry;
+							FeedData feedData;
+							for (int i = 0, j = syndFeed.getEntries().size(); i < j; i++) {
+								entry = (SyndEntryImpl) syndFeed.getEntries().get(i);
+
+								if (lastestJob == null || entry.getPublishedDate().after(lastestJob.getDate())) {
+									feedData = new FeedData();
+									feedData.setTitle(entry.getTitle().trim());
+									feedData.setDescription(entry.getDescription().getValue().trim());
+									feedData.setUrl(entry.getLink().trim());
+									feedData.setPublicationDate(new Timestamp(entry.getPublishedDate().getTime()));
+									feedData.setStatus(1);
+									feedData.setFeed(feed);
+									feedData.setInteresting(FeedData.NEW);
+
+									feedDataDAO.save(feedData);
+
+									feed.getFeedData().add(feedData);
+									feed.getFeedJobs().add(feedJob);
+								}
+							}
+
+							feedDAO.save(feed);
+						} catch (MalformedURLException e) {
+							e.printStackTrace();
+						} catch (FeedException e) {
+							e.printStackTrace();
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+						System.out.println();
+				}
+			}
+		} catch (ServiceException e) {
+			e.printStackTrace();
+		}
+	}
+}
